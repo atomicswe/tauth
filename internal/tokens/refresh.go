@@ -1,4 +1,4 @@
-package tauth
+package tokens
 
 import (
 	"math/rand"
