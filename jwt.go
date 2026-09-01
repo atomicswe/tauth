@@ -1,4 +1,4 @@
-package auth
+package tauth
 
 import (
 	"encoding/json"
@@ -27,16 +27,21 @@ type CustomClaim struct {
 	Other string `json:"other"` // any other custom claim that should be in the token
 }
 
+type TAccessToken struct {
+	Token     string
+	ExpiresAt time.Time
+}
+
 // NewAccessToken generates a new access token
-func NewAccessToken(sub string, expiration *time.Duration, customClaim *CustomClaim) (string, error) {
+func NewAccessToken(sub string, expiration *time.Duration, customClaim *CustomClaim) (TAccessToken, error) {
 	sub = strings.TrimSpace(sub)
 	if sub == "" {
-		return "", ErrSubRequired
+		return TAccessToken{}, ErrSubRequired
 	}
 
 	secret, found := os.LookupEnv("TAUTH_SECRET_KEY")
 	if !found {
-		return "", ErrSecretKeyMissing
+		return TAccessToken{}, ErrSecretKeyMissing
 	}
 
 	iss := defaultIssuer
@@ -49,10 +54,11 @@ func NewAccessToken(sub string, expiration *time.Duration, customClaim *CustomCl
 	if expiration != nil {
 		exp = *expiration
 	}
+	expiresAt := time.Now().Add(exp)
 
 	claims := jwt.MapClaims{
 		"iss": iss,
-		"exp": time.Now().Add(exp).Unix(),
+		"exp": expiresAt.Unix(),
 		"sub": sub,
 		"iat": time.Now(),
 	}
@@ -60,7 +66,7 @@ func NewAccessToken(sub string, expiration *time.Duration, customClaim *CustomCl
 	if customClaim != nil {
 		data, err := json.MarshalIndent(*customClaim, "", "\t")
 		if err != nil {
-			return "", err
+			return TAccessToken{}, err
 		}
 		claims[customClaimKey] = data
 	}
@@ -71,9 +77,12 @@ func NewAccessToken(sub string, expiration *time.Duration, customClaim *CustomCl
 	).SignedString([]byte(secret))
 
 	if err != nil {
-		return "", err
+		return TAccessToken{}, err
 	}
-	return token, nil
+	return TAccessToken{
+		Token:     token,
+		ExpiresAt: expiresAt,
+	}, nil
 }
 
 // ValidateToken validates the token and returns
