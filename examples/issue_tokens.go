@@ -3,8 +3,8 @@ package examples
 import (
 	"encoding/json"
 
-	"github.com/atomicswe/tauth"
 	"github.com/atomicswe/tauth/internal/tokens"
+	"github.com/atomicswe/tauth/pkg/tauth"
 )
 
 func NewTokens(user string) (tokens.TTokens, error) {
