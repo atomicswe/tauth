@@ -1,18 +1,16 @@
 package tokens
 
 import (
-	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/atomicswe/tauth/internal/common"
 	"github.com/atomicswe/tauth/pkg/terrors"
 	"github.com/golang-jwt/jwt/v5"
 )
 
 const (
-	defaultIssuer       = "tauth-default-iss"
-	customClaimKey      = "custom_claim"
 	defaultATExpiration = time.Minute * 5
 )
 
@@ -34,7 +32,7 @@ func NewAccessToken(user, sub string, expiration *time.Duration, customClaims st
 		return TAccessToken{}, terrors.TErrSecretKeyMissing
 	}
 
-	iss := defaultIssuer
+	iss := common.DefaultIssuer
 	customIss, found := os.LookupEnv("TAUTH_ISS")
 	if found {
 		iss = customIss
@@ -47,14 +45,15 @@ func NewAccessToken(user, sub string, expiration *time.Duration, customClaims st
 	expiresAt := time.Now().Add(exp)
 
 	claims := jwt.MapClaims{
-		"iss": iss,
-		"exp": expiresAt.Unix(),
-		"sub": sub,
-		"iat": time.Now(),
+		"iss":  iss,
+		"exp":  expiresAt.Unix(),
+		"sub":  sub,
+		"iat":  time.Now(),
+		"user": user,
 	}
 
 	if customClaims != "" {
-		claims[customClaimKey] = customClaims
+		claims[common.CustomClaimKey] = customClaims
 	}
 
 	token, err := jwt.NewWithClaims(
@@ -70,38 +69,6 @@ func NewAccessToken(user, sub string, expiration *time.Duration, customClaims st
 		Expiration: exp,
 		ExpiresAt:  expiresAt,
 	}, nil
-}
-
-// ValidateToken validates the token and returns
-// the custom claims
-func ValidateToken(token string) (string, error) {
-	secret, found := os.LookupEnv("TAUTH_SECRET_KEY")
-	if !found {
-		return "", terrors.TErrSecretKeyMissing
-	}
-
-	iss := defaultIssuer
-	customIss, found := os.LookupEnv("TAUTH_ISS")
-	if found {
-		iss = customIss
-	}
-
-	t, err := jwt.Parse(
-		token,
-		func(token *jwt.Token) (interface{}, error) {
-			return []byte(secret), nil
-		},
-		jwt.WithIssuer(iss),
-		jwt.WithLeeway(time.Minute),
-		jwt.WithExpirationRequired(),
-		jwt.WithValidMethods([]string{"HS256"}),
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to validate the jwt token with: %w", err)
-	}
-
-	claims := t.Claims.(jwt.MapClaims)
-	return claims[customClaimKey].(string), nil
 }
 
 func ExtractSub(token string) (string, error) {
@@ -142,5 +109,5 @@ func ExtractCustomClaims(token string) (string, error) {
 	}
 
 	claims := t.Claims.(jwt.MapClaims)
-	return claims[customClaimKey].(string), nil
+	return claims[common.CustomClaimKey].(string), nil
 }

@@ -1,12 +1,16 @@
 package tauth
 
 import (
+	"fmt"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/atomicswe/tauth/internal/common"
 	"github.com/atomicswe/tauth/internal/memory"
 	"github.com/atomicswe/tauth/internal/tokens"
 	"github.com/atomicswe/tauth/pkg/terrors"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 const (
@@ -62,6 +66,37 @@ func validateOptions(options TAuthOptions) error {
 	}
 	options.CustomClaims = strings.TrimSpace(options.CustomClaims)
 	return nil
+}
+
+// ValidateToken validates the token and returns
+// the user and custom claims
+func ValidateToken(token string) (string, string, error) {
+	secret, found := os.LookupEnv("TAUTH_SECRET_KEY")
+	if !found {
+		return "", "", terrors.TErrSecretKeyMissing
+	}
+
+	iss := common.DefaultIssuer
+	if customIss, found := os.LookupEnv("TAUTH_ISS"); found {
+		iss = customIss
+	}
+
+	t, err := jwt.Parse(
+		token,
+		func(token *jwt.Token) (interface{}, error) {
+			return []byte(secret), nil
+		},
+		jwt.WithIssuer(iss),
+		jwt.WithLeeway(time.Minute),
+		jwt.WithExpirationRequired(),
+		jwt.WithValidMethods([]string{"HS256"}),
+	)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to validate the jwt token with: %w", err)
+	}
+
+	claims := t.Claims.(jwt.MapClaims)
+	return claims["user"].(string), claims[common.DefaultIssuer].(string), nil
 }
 
 func RefreshTokens(user string, refreshToken string) (tokens.TTokens, error) {

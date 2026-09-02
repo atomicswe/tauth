@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/atomicswe/tauth"
 	"github.com/atomicswe/tauth/internal/tokens"
-	"github.com/atomicswe/tauth/pkg/tauth"
 )
 
 func RefreshTokens(user string) (tokens.TTokens, tokens.TTokens, error) {
