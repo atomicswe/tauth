@@ -108,6 +108,11 @@ func ExtractCustomClaims(token string) (string, error) {
 		return "", err
 	}
 
-	claims := t.Claims.(jwt.MapClaims)
-	return claims[common.CustomClaimKey].(string), nil
+	claims, ok := t.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", terrors.TErrUnexpectedClaimsType
+	}
+
+	customClaims, _ := claims[common.CustomClaimKey].(string)
+	return customClaims, nil
 }
