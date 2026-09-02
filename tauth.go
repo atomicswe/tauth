@@ -95,8 +95,14 @@ func ValidateToken(token string) (string, string, error) {
 		return "", "", fmt.Errorf("failed to validate the jwt token with: %w", err)
 	}
 
-	claims := t.Claims.(jwt.MapClaims)
-	return claims["user"].(string), claims[common.DefaultIssuer].(string), nil
+	claims, ok := t.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", "", terrors.TErrUnexpectedClaimsType
+	}
+
+	user, _ := claims["user"].(string)
+	customClaims, _ := claims[common.CustomClaimKey].(string)
+	return user, customClaims, nil
 }
 
 func RefreshTokens(user string, refreshToken string) (tokens.TTokens, error) {

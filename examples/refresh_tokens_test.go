@@ -1,10 +1,9 @@
 package examples
 
 import (
-	"encoding/json"
-	"fmt"
 	"testing"
 
+	"github.com/atomicswe/tauth"
 	"github.com/atomicswe/tauth/internal/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,22 +12,34 @@ import (
 func TestRefreshTokensExampleSucceeds(t *testing.T) {
 	t.Setenv("TAUTH_SECRET_KEY", "very-secret-secret-key")
 
-	user := "some_user"
-	old, new, err := RefreshTokens(user)
+	user := "refresh-example-user"
+	oldTokens, newTokens, err := RefreshTokens(user)
 	require.NoError(t, err)
 
-	assert.NotEmpty(t, old.AccessToken.Token)
-	assert.NotEmpty(t, old.RefreshToken.Token)
+	assert.NotEmpty(t, oldTokens.AccessToken.Token)
+	assert.NotEmpty(t, oldTokens.RefreshToken.Token)
+	assert.NotEmpty(t, newTokens.AccessToken.Token)
+	assert.NotEmpty(t, newTokens.RefreshToken.Token)
 
-	oldTokensString, err := json.MarshalIndent(old, "", "\t")
-	require.NoError(t, err)
-	fmt.Printf("old tokens: %s\n", oldTokensString)
+	assert.NotEqual(t, oldTokens.AccessToken.Token, newTokens.AccessToken.Token)
+	assert.NotEqual(t, oldTokens.RefreshToken.Token, newTokens.RefreshToken.Token)
+	assert.Equal(t, oldTokens.AccessToken.Expiration, newTokens.AccessToken.Expiration)
+	assert.Equal(t, oldTokens.RefreshToken.Expiration, newTokens.RefreshToken.Expiration)
 
-	newTokensString, err := json.MarshalIndent(new, "", "\t")
+	gotUser, customClaims, err := tauth.ValidateToken(newTokens.AccessToken.Token)
 	require.NoError(t, err)
-	fmt.Printf("new tokens: %s\n", newTokensString)
+	assert.Equal(t, user, gotUser)
+	assert.JSONEq(t, `{"purpose":"example"}`, customClaims)
+
+	_, _, err = tauth.ValidateToken(oldTokens.AccessToken.Token)
+	require.NoError(t, err)
 
 	cached, err := memory.Live.Get(user)
 	require.NoError(t, err)
-	assert.Equal(t, new, cached)
+	assert.Equal(t, newTokens, cached)
+
+	t.Logf("old access token: %s", oldTokens.AccessToken.Token)
+	t.Logf("new access token: %s", newTokens.AccessToken.Token)
+	t.Logf("old refresh token: %s", oldTokens.RefreshToken.Token)
+	t.Logf("new refresh token: %s", newTokens.RefreshToken.Token)
 }
