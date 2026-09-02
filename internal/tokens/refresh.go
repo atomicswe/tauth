@@ -18,6 +18,7 @@ type TRefreshToken struct {
 	ExpiresAt  time.Time
 }
 
+// NewRefreshToken creates a random refresh token.
 func NewRefreshToken(expiration *time.Duration) (TRefreshToken, error) {
 	b := make([]byte, refreshtTokenSize)
 	for i := range b {

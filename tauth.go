@@ -25,6 +25,7 @@ type TAuthOptions struct {
 	CustomClaims string         `json:"custom_claim"`
 }
 
+// IssueTokens issues access and refresh tokens for the user.
 func IssueTokens(user string, options TAuthOptions) (tokens.TTokens, error) {
 	user = strings.TrimSpace(user)
 	if user == "" {
@@ -68,8 +69,7 @@ func validateOptions(options TAuthOptions) error {
 	return nil
 }
 
-// ValidateToken validates the token and returns
-// the user and custom claims
+// ValidateToken validates a JWT access token.
 func ValidateToken(token string) (string, string, error) {
 	secret, found := os.LookupEnv("TAUTH_SECRET_KEY")
 	if !found {
@@ -105,6 +105,7 @@ func ValidateToken(token string) (string, string, error) {
 	return user, customClaims, nil
 }
 
+// RefreshTokens issues new tokens from a valid refresh token.
 func RefreshTokens(user string, refreshToken string) (tokens.TTokens, error) {
 	user = strings.TrimSpace(user)
 	if user == "" {
@@ -126,12 +127,12 @@ func RefreshTokens(user string, refreshToken string) (tokens.TTokens, error) {
 
 	sub, err := tokens.ExtractSub(oldTokens.AccessToken.Token)
 	if err != nil {
-		return tokens.TTokens{}, err // terrors.TErrFailedToExtractSub
+		return tokens.TTokens{}, terrors.TErrFailedToExtractSub
 	}
 
 	customClaims, err := tokens.ExtractCustomClaims(oldTokens.AccessToken.Token)
 	if err != nil {
-		return tokens.TTokens{}, err // terrors.TErrFailedToExtractCustomClaims
+		return tokens.TTokens{}, terrors.TErrFailedToExtractCustomClaims
 	}
 
 	return IssueTokens(user, TAuthOptions{

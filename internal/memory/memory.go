@@ -14,18 +14,21 @@ type Memory struct {
 	tokens map[string]tokens.TTokens
 }
 
+// NewMemory creates an in-memory token store.
 func NewMemory() *Memory {
 	return &Memory{
 		tokens: make(map[string]tokens.TTokens),
 	}
 }
 
+// Put stores tokens for a user.
 func (m *Memory) Put(user string, tokens tokens.TTokens) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.tokens[user] = tokens
 }
 
+// Get retrieves stored tokens for a user.
 func (m *Memory) Get(user string) (tokens.TTokens, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -37,6 +40,7 @@ func (m *Memory) Get(user string) (tokens.TTokens, error) {
 	return stored, nil
 }
 
+// Remove deletes stored tokens for a user.
 func (m *Memory) Remove(user string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()

@@ -20,7 +20,7 @@ type TAccessToken struct {
 	ExpiresAt  time.Time
 }
 
-// NewAccessToken generates a new access token
+// NewAccessToken creates a signed JWT access token.
 func NewAccessToken(user, sub string, expiration *time.Duration, customClaims string) (TAccessToken, error) {
 	sub = strings.TrimSpace(sub)
 	if sub == "" {
@@ -71,6 +71,7 @@ func NewAccessToken(user, sub string, expiration *time.Duration, customClaims st
 	}, nil
 }
 
+// ExtractSub extracts the subject claim from an access token.
 func ExtractSub(token string) (string, error) {
 	secret, found := os.LookupEnv("TAUTH_SECRET_KEY")
 	if !found {
@@ -91,6 +92,7 @@ func ExtractSub(token string) (string, error) {
 	return t.Claims.GetSubject()
 }
 
+// ExtractCustomClaims extracts the custom claim from an access token.
 func ExtractCustomClaims(token string) (string, error) {
 	secret, found := os.LookupEnv("TAUTH_SECRET_KEY")
 	if !found {
