@@ -1,13 +1,12 @@
 package tokens
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/atomicswe/tauth/pkg/terrors"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -17,31 +16,21 @@ const (
 	defaultATExpiration = time.Minute * 5
 )
 
-var (
-	ErrSubRequired      = errors.New("the 'sub' parameter is required")
-	ErrSecretKeyMissing = errors.New("TAUTH_SECRET_KEY must be set")
-)
-
-type CustomClaim struct {
-	User  string `json:"user"`  // the user identifier (i.e.: a username, uuid or email)
-	Other string `json:"other"` // any other custom claim that should be in the token
-}
-
 type TAccessToken struct {
 	Token     string
 	ExpiresAt time.Time
 }
 
 // NewAccessToken generates a new access token
-func NewAccessToken(sub string, expiration *time.Duration, customClaim *CustomClaim) (TAccessToken, error) {
+func NewAccessToken(user, sub string, expiration *time.Duration, customClaims string) (TAccessToken, error) {
 	sub = strings.TrimSpace(sub)
 	if sub == "" {
-		return TAccessToken{}, ErrSubRequired
+		return TAccessToken{}, terrors.TErrSubRequired
 	}
 
 	secret, found := os.LookupEnv("TAUTH_SECRET_KEY")
 	if !found {
-		return TAccessToken{}, ErrSecretKeyMissing
+		return TAccessToken{}, terrors.ErrSecretKeyMissing
 	}
 
 	iss := defaultIssuer
@@ -63,12 +52,8 @@ func NewAccessToken(sub string, expiration *time.Duration, customClaim *CustomCl
 		"iat": time.Now(),
 	}
 
-	if customClaim != nil {
-		data, err := json.MarshalIndent(*customClaim, "", "\t")
-		if err != nil {
-			return TAccessToken{}, err
-		}
-		claims[customClaimKey] = data
+	if customClaims != "" {
+		claims[customClaimKey] = customClaims
 	}
 
 	token, err := jwt.NewWithClaims(
@@ -86,11 +71,11 @@ func NewAccessToken(sub string, expiration *time.Duration, customClaim *CustomCl
 }
 
 // ValidateToken validates the token and returns
-// the parsed CustomClaim
-func ValidateToken(token string) (CustomClaim, error) {
+// the custom claims
+func ValidateToken(token string) (string, error) {
 	secret, found := os.LookupEnv("TAUTH_SECRET_KEY")
 	if !found {
-		return CustomClaim{}, ErrSecretKeyMissing
+		return "", terrors.ErrSecretKeyMissing
 	}
 
 	iss := defaultIssuer
@@ -110,13 +95,9 @@ func ValidateToken(token string) (CustomClaim, error) {
 		jwt.WithValidMethods([]string{"HS256"}),
 	)
 	if err != nil {
-		return CustomClaim{}, fmt.Errorf("failed to validate the jwt token with: %w", err)
+		return "", fmt.Errorf("failed to validate the jwt token with: %w", err)
 	}
 
 	claims := t.Claims.(jwt.MapClaims)
-	var decoded CustomClaim
-	if err := json.Unmarshal([]byte(claims[customClaimKey].(string)), &decoded); err != nil {
-		return CustomClaim{}, err
-	}
-	return decoded, nil
+	return claims[customClaimKey].(string), nil
 }
