@@ -1,3 +1,4 @@
+// Package terrors defines sentinel errors returned by tauth.
 package terrors
 
 import "errors"

@@ -12,10 +12,14 @@ const (
 	defaultRTExpiration = time.Hour * 24
 )
 
+// TRefreshToken is an opaque refresh token together with its lifetime.
 type TRefreshToken struct {
-	Token      string
+	// Token is the opaque refresh-token string.
+	Token string
+	// Expiration is the lifetime used when the token was issued.
 	Expiration time.Duration
-	ExpiresAt  time.Time
+	// ExpiresAt is the instant after which the token is expired.
+	ExpiresAt time.Time
 }
 
 // NewRefreshToken creates a random refresh token.

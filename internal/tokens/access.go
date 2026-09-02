@@ -14,10 +14,14 @@ const (
 	defaultATExpiration = time.Minute * 5
 )
 
+// TAccessToken is a signed JWT together with its lifetime.
 type TAccessToken struct {
-	Token      string
+	// Token is the compact JWT string.
+	Token string
+	// Expiration is the lifetime used when the token was issued.
 	Expiration time.Duration
-	ExpiresAt  time.Time
+	// ExpiresAt is the instant after which the token is expired.
+	ExpiresAt time.Time
 }
 
 // NewAccessToken creates a signed JWT access token.

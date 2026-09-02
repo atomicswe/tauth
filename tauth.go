@@ -1,3 +1,8 @@
+// Package tauth issues HS256 JWT access tokens and opaque refresh tokens.
+//
+// Signing and validation require the TAUTH_SECRET_KEY environment variable.
+// Set TAUTH_ISS to override the JWT issuer; the default is tauth-default-iss.
+// Issued refresh tokens are kept in process memory and checked by RefreshTokens.
 package tauth
 
 import (
@@ -18,35 +23,49 @@ const (
 	minRTExpiration = time.Hour
 )
 
+// Tokens is the access and refresh pair returned by IssueTokens and RefreshTokens.
+type Tokens = tokens.TTokens
+
+// AccessToken is a signed JWT together with its configured lifetime and expiry instant.
+type AccessToken = tokens.TAccessToken
+
+// RefreshToken is an opaque refresh token together with its configured lifetime and expiry instant.
+type RefreshToken = tokens.TRefreshToken
+
+// TAuthOptions configures token issuance for [IssueTokens].
 type TAuthOptions struct {
-	Sub          string         `json:"sub"`
+	// Sub is the JWT subject claim. It is required.
+	Sub string `json:"sub"`
+	// ATExpiration is the access-token lifetime. A nil value uses 5 minutes.
 	ATExpiration *time.Duration `json:"at_expiration"`
+	// RTExpiration is the refresh-token lifetime. A nil value uses 24 hours.
 	RTExpiration *time.Duration `json:"rt_expiration"`
-	CustomClaims string         `json:"custom_claim"`
+	// CustomClaims is an optional string stored in the JWT as custom_claim.
+	CustomClaims string `json:"custom_claim"`
 }
 
-// IssueTokens issues access and refresh tokens for the user.
-func IssueTokens(user string, options TAuthOptions) (tokens.TTokens, error) {
+// IssueTokens creates an access token and a refresh token for user.
+func IssueTokens(user string, options TAuthOptions) (Tokens, error) {
 	user = strings.TrimSpace(user)
 	if user == "" {
-		return tokens.TTokens{}, terrors.TErrUserRequired
+		return Tokens{}, terrors.TErrUserRequired
 	}
 
 	if err := validateOptions(options); err != nil {
-		return tokens.TTokens{}, err
+		return Tokens{}, err
 	}
 
 	at, err := tokens.NewAccessToken(user, options.Sub, options.ATExpiration, options.CustomClaims)
 	if err != nil {
-		return tokens.TTokens{}, err
+		return Tokens{}, err
 	}
 
 	rt, err := tokens.NewRefreshToken(options.RTExpiration)
 	if err != nil {
-		return tokens.TTokens{}, err
+		return Tokens{}, err
 	}
 
-	issuedTokens := tokens.TTokens{
+	issuedTokens := Tokens{
 		AccessToken:  at,
 		RefreshToken: rt,
 	}
@@ -69,7 +88,7 @@ func validateOptions(options TAuthOptions) error {
 	return nil
 }
 
-// ValidateToken validates a JWT access token.
+// ValidateToken parses and validates a JWT access token.
 func ValidateToken(token string) (string, string, error) {
 	secret, found := os.LookupEnv("TAUTH_SECRET_KEY")
 	if !found {
@@ -105,34 +124,34 @@ func ValidateToken(token string) (string, string, error) {
 	return user, customClaims, nil
 }
 
-// RefreshTokens issues new tokens from a valid refresh token.
-func RefreshTokens(user string, refreshToken string) (tokens.TTokens, error) {
+// RefreshTokens validates the user's stored refresh token and issues a new pair.
+func RefreshTokens(user string, refreshToken string) (Tokens, error) {
 	user = strings.TrimSpace(user)
 	if user == "" {
-		return tokens.TTokens{}, terrors.TErrUserRequired
+		return Tokens{}, terrors.TErrUserRequired
 	}
 
 	oldTokens, err := memory.Live.Get(user)
 	if err != nil {
-		return tokens.TTokens{}, err
+		return Tokens{}, err
 	}
 
 	if refreshToken != oldTokens.RefreshToken.Token {
-		return tokens.TTokens{}, terrors.TErrRefreshTokenMismatch
+		return Tokens{}, terrors.TErrRefreshTokenMismatch
 	}
 
 	if oldTokens.RefreshToken.ExpiresAt.Before(time.Now()) {
-		return tokens.TTokens{}, terrors.TErrRefreshTokenExpired
+		return Tokens{}, terrors.TErrRefreshTokenExpired
 	}
 
 	sub, err := tokens.ExtractSub(oldTokens.AccessToken.Token)
 	if err != nil {
-		return tokens.TTokens{}, terrors.TErrFailedToExtractSub
+		return Tokens{}, terrors.TErrFailedToExtractSub
 	}
 
 	customClaims, err := tokens.ExtractCustomClaims(oldTokens.AccessToken.Token)
 	if err != nil {
-		return tokens.TTokens{}, terrors.TErrFailedToExtractCustomClaims
+		return Tokens{}, terrors.TErrFailedToExtractCustomClaims
 	}
 
 	return IssueTokens(user, TAuthOptions{
