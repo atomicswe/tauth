@@ -13,8 +13,9 @@ const (
 )
 
 type TRefreshToken struct {
-	Token     string
-	ExpiresAt time.Time
+	Token      string
+	Expiration time.Duration
+	ExpiresAt  time.Time
 }
 
 func NewRefreshToken(expiration *time.Duration) (TRefreshToken, error) {
@@ -29,7 +30,8 @@ func NewRefreshToken(expiration *time.Duration) (TRefreshToken, error) {
 	}
 
 	return TRefreshToken{
-		Token:     string(b),
-		ExpiresAt: time.Now().Add(exp),
+		Token:      string(b),
+		Expiration: exp,
+		ExpiresAt:  time.Now().Add(exp),
 	}, nil
 }

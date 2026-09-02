@@ -63,3 +63,40 @@ func validateOptions(options TAuthOptions) error {
 	options.CustomClaims = strings.TrimSpace(options.CustomClaims)
 	return nil
 }
+
+func RefreshTokens(user string, refreshToken string) (tokens.TTokens, error) {
+	user = strings.TrimSpace(user)
+	if user == "" {
+		return tokens.TTokens{}, terrors.TErrUserRequired
+	}
+
+	oldTokens, err := memory.Live.Get(user)
+	if err != nil {
+		return tokens.TTokens{}, err
+	}
+
+	if refreshToken != oldTokens.RefreshToken.Token {
+		return tokens.TTokens{}, terrors.TErrRefreshTokenMismatch
+	}
+
+	if oldTokens.RefreshToken.ExpiresAt.Before(time.Now()) {
+		return tokens.TTokens{}, terrors.TErrRefreshTokenExpired
+	}
+
+	sub, err := tokens.ExtractSub(oldTokens.AccessToken.Token)
+	if err != nil {
+		return tokens.TTokens{}, err // terrors.TErrFailedToExtractSub
+	}
+
+	customClaims, err := tokens.ExtractCustomClaims(oldTokens.AccessToken.Token)
+	if err != nil {
+		return tokens.TTokens{}, err // terrors.TErrFailedToExtractCustomClaims
+	}
+
+	return IssueTokens(user, TAuthOptions{
+		Sub:          sub,
+		ATExpiration: &oldTokens.AccessToken.Expiration,
+		RTExpiration: &oldTokens.RefreshToken.Expiration,
+		CustomClaims: customClaims,
+	})
+}

@@ -1,14 +1,10 @@
 package memory
 
 import (
-	"errors"
 	"sync"
 
 	"github.com/atomicswe/tauth/internal/tokens"
-)
-
-var (
-	ErrTokensNotFound = errors.New("the user does not have any stored tokens")
+	"github.com/atomicswe/tauth/pkg/terrors"
 )
 
 var Live = NewMemory()
@@ -36,7 +32,7 @@ func (m *Memory) Get(user string) (tokens.TTokens, error) {
 
 	stored, found := m.tokens[user]
 	if !found {
-		return tokens.TTokens{}, ErrTokensNotFound
+		return tokens.TTokens{}, terrors.TErrTokensNotFound
 	}
 	return stored, nil
 }
@@ -47,7 +43,7 @@ func (m *Memory) Remove(user string) error {
 
 	_, found := m.tokens[user]
 	if !found {
-		return ErrTokensNotFound
+		return terrors.TErrTokensNotFound
 	}
 	delete(m.tokens, user)
 	return nil

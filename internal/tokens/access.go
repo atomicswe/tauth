@@ -17,8 +17,9 @@ const (
 )
 
 type TAccessToken struct {
-	Token     string
-	ExpiresAt time.Time
+	Token      string
+	Expiration time.Duration
+	ExpiresAt  time.Time
 }
 
 // NewAccessToken generates a new access token
@@ -30,7 +31,7 @@ func NewAccessToken(user, sub string, expiration *time.Duration, customClaims st
 
 	secret, found := os.LookupEnv("TAUTH_SECRET_KEY")
 	if !found {
-		return TAccessToken{}, terrors.ErrSecretKeyMissing
+		return TAccessToken{}, terrors.TErrSecretKeyMissing
 	}
 
 	iss := defaultIssuer
@@ -65,8 +66,9 @@ func NewAccessToken(user, sub string, expiration *time.Duration, customClaims st
 		return TAccessToken{}, err
 	}
 	return TAccessToken{
-		Token:     token,
-		ExpiresAt: expiresAt,
+		Token:      token,
+		Expiration: exp,
+		ExpiresAt:  expiresAt,
 	}, nil
 }
 
@@ -75,7 +77,7 @@ func NewAccessToken(user, sub string, expiration *time.Duration, customClaims st
 func ValidateToken(token string) (string, error) {
 	secret, found := os.LookupEnv("TAUTH_SECRET_KEY")
 	if !found {
-		return "", terrors.ErrSecretKeyMissing
+		return "", terrors.TErrSecretKeyMissing
 	}
 
 	iss := defaultIssuer
@@ -96,6 +98,47 @@ func ValidateToken(token string) (string, error) {
 	)
 	if err != nil {
 		return "", fmt.Errorf("failed to validate the jwt token with: %w", err)
+	}
+
+	claims := t.Claims.(jwt.MapClaims)
+	return claims[customClaimKey].(string), nil
+}
+
+func ExtractSub(token string) (string, error) {
+	secret, found := os.LookupEnv("TAUTH_SECRET_KEY")
+	if !found {
+		return "", terrors.TErrSecretKeyMissing
+	}
+
+	t, err := jwt.Parse(
+		token,
+		func(token *jwt.Token) (interface{}, error) {
+			return []byte(secret), nil
+		},
+		jwt.WithValidMethods([]string{"HS256"}),
+	)
+	if err != nil {
+		return "", err
+	}
+
+	return t.Claims.GetSubject()
+}
+
+func ExtractCustomClaims(token string) (string, error) {
+	secret, found := os.LookupEnv("TAUTH_SECRET_KEY")
+	if !found {
+		return "", terrors.TErrSecretKeyMissing
+	}
+
+	t, err := jwt.Parse(
+		token,
+		func(token *jwt.Token) (interface{}, error) {
+			return []byte(secret), nil
+		},
+		jwt.WithValidMethods([]string{"HS256"}),
+	)
+	if err != nil {
+		return "", err
 	}
 
 	claims := t.Claims.(jwt.MapClaims)
