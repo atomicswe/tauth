@@ -34,13 +34,11 @@ type RefreshToken = tokens.TRefreshToken
 
 // TAuthOptions configures token issuance for [IssueTokens].
 type TAuthOptions struct {
-	// Sub is the JWT subject claim. It is required.
-	Sub string `json:"sub"`
-	// ATExpiration is the access-token lifetime. A nil value uses 5 minutes.
+	// [Optional] ATExpiration is the access-token lifetime.
 	ATExpiration *time.Duration `json:"at_expiration"`
-	// RTExpiration is the refresh-token lifetime. A nil value uses 24 hours.
+	// [Optional] RTExpiration is the refresh-token lifetime.
 	RTExpiration *time.Duration `json:"rt_expiration"`
-	// CustomClaims is an optional string stored in the JWT as custom_claim.
+	// [Optional] CustomClaims is an optional string stored in the JWT as custom_claim.
 	CustomClaims string `json:"custom_claim"`
 }
 
@@ -55,7 +53,7 @@ func IssueTokens(user string, options TAuthOptions) (Tokens, error) {
 		return Tokens{}, err
 	}
 
-	at, err := tokens.NewAccessToken(user, options.Sub, options.ATExpiration, options.CustomClaims)
+	at, err := tokens.NewAccessToken(user, options.ATExpiration, options.CustomClaims)
 	if err != nil {
 		return Tokens{}, err
 	}
@@ -74,10 +72,6 @@ func IssueTokens(user string, options TAuthOptions) (Tokens, error) {
 }
 
 func validateOptions(options TAuthOptions) error {
-	options.Sub = strings.TrimSpace(options.Sub)
-	if options.Sub == "" {
-		return terrors.TErrSubRequired
-	}
 	if options.ATExpiration != nil && *options.ATExpiration < minATExpiration {
 		return terrors.TErrRTExpTooLow
 	}
@@ -144,18 +138,12 @@ func RefreshTokens(user string, refreshToken string) (Tokens, error) {
 		return Tokens{}, terrors.TErrRefreshTokenExpired
 	}
 
-	sub, err := tokens.ExtractSub(oldTokens.AccessToken.Token)
-	if err != nil {
-		return Tokens{}, terrors.TErrFailedToExtractSub
-	}
-
 	customClaims, err := tokens.ExtractCustomClaims(oldTokens.AccessToken.Token)
 	if err != nil {
 		return Tokens{}, terrors.TErrFailedToExtractCustomClaims
 	}
 
 	return IssueTokens(user, TAuthOptions{
-		Sub:          sub,
 		ATExpiration: &oldTokens.AccessToken.Expiration,
 		RTExpiration: &oldTokens.RefreshToken.Expiration,
 		CustomClaims: customClaims,

@@ -30,7 +30,7 @@ func TestNewAccessTokenSucceeds(t *testing.T) {
 
 	exp := 15 * time.Minute
 	before := time.Now()
-	got, err := NewAccessToken("alice", "test-client", &exp, `{"role":"admin"}`)
+	got, err := NewAccessToken("alice", &exp, `{"role":"admin"}`)
 	require.NoError(t, err)
 
 	assert.NotEmpty(t, got.Token)
@@ -46,7 +46,6 @@ func TestNewAccessTokenSucceeds(t *testing.T) {
 	claims, ok := parsed.Claims.(jwt.MapClaims)
 	require.True(t, ok)
 	assert.Equal(t, common.DefaultIssuer, claims["iss"])
-	assert.Equal(t, "test-client", claims["sub"])
 	assert.Equal(t, "alice", claims["user"])
 	assert.Equal(t, `{"role":"admin"}`, claims[common.CustomClaimKey])
 }
@@ -54,7 +53,7 @@ func TestNewAccessTokenSucceeds(t *testing.T) {
 func TestNewAccessTokenUsesDefaultExpiration(t *testing.T) {
 	setSecret(t)
 
-	got, err := NewAccessToken("alice", "test-client", nil, "")
+	got, err := NewAccessToken("alice", nil, "")
 	require.NoError(t, err)
 	assert.Equal(t, defaultATExpiration, got.Expiration)
 }
@@ -63,7 +62,7 @@ func TestNewAccessTokenUsesCustomIssuer(t *testing.T) {
 	setSecret(t)
 	t.Setenv("TAUTH_ISS", "custom-issuer")
 
-	got, err := NewAccessToken("alice", "test-client", nil, "")
+	got, err := NewAccessToken("alice", nil, "")
 	require.NoError(t, err)
 
 	parsed, err := jwt.Parse(got.Token, func(token *jwt.Token) (interface{}, error) {
@@ -74,58 +73,17 @@ func TestNewAccessTokenUsesCustomIssuer(t *testing.T) {
 	assert.Equal(t, "custom-issuer", claims["iss"])
 }
 
-func TestNewAccessTokenTrimsSub(t *testing.T) {
-	setSecret(t)
-
-	got, err := NewAccessToken("alice", "  test-client  ", nil, "")
-	require.NoError(t, err)
-
-	sub, err := ExtractSub(got.Token)
-	require.NoError(t, err)
-	assert.Equal(t, "test-client", sub)
-}
-
-func TestNewAccessTokenRequiresSub(t *testing.T) {
-	_, err := NewAccessToken("alice", "  ", nil, "")
-	require.ErrorIs(t, err, terrors.TErrSubRequired)
-}
-
 func TestNewAccessTokenRequiresSecret(t *testing.T) {
 	unsetSecret(t)
 
-	_, err := NewAccessToken("alice", "test-client", nil, "")
+	_, err := NewAccessToken("alice", nil, "")
 	require.ErrorIs(t, err, terrors.TErrSecretKeyMissing)
-}
-
-func TestExtractSub(t *testing.T) {
-	setSecret(t)
-
-	got, err := NewAccessToken("alice", "test-client", nil, "")
-	require.NoError(t, err)
-
-	sub, err := ExtractSub(got.Token)
-	require.NoError(t, err)
-	assert.Equal(t, "test-client", sub)
-}
-
-func TestExtractSubRequiresSecret(t *testing.T) {
-	unsetSecret(t)
-
-	_, err := ExtractSub("token")
-	require.ErrorIs(t, err, terrors.TErrSecretKeyMissing)
-}
-
-func TestExtractSubRejectsInvalidToken(t *testing.T) {
-	setSecret(t)
-
-	_, err := ExtractSub("not-a-jwt")
-	require.Error(t, err)
 }
 
 func TestExtractCustomClaims(t *testing.T) {
 	setSecret(t)
 
-	got, err := NewAccessToken("alice", "test-client", nil, `{"role":"admin"}`)
+	got, err := NewAccessToken("alice", nil, `{"role":"admin"}`)
 	require.NoError(t, err)
 
 	claims, err := ExtractCustomClaims(got.Token)
@@ -136,7 +94,7 @@ func TestExtractCustomClaims(t *testing.T) {
 func TestExtractCustomClaimsMissingClaim(t *testing.T) {
 	setSecret(t)
 
-	got, err := NewAccessToken("alice", "test-client", nil, "")
+	got, err := NewAccessToken("alice", nil, "")
 	require.NoError(t, err)
 
 	claims, err := ExtractCustomClaims(got.Token)

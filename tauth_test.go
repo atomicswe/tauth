@@ -33,7 +33,6 @@ func durationPtr(d time.Duration) *time.Duration {
 
 func validOptions() tauth.TAuthOptions {
 	return tauth.TAuthOptions{
-		Sub:          "test-client",
 		ATExpiration: durationPtr(15 * time.Minute),
 		RTExpiration: durationPtr(2 * time.Hour),
 		CustomClaims: `{"role":"admin"}`,
@@ -68,7 +67,7 @@ func TestIssueTokensSucceeds(t *testing.T) {
 func TestIssueTokensUsesDefaultsWhenExpirationsOmitted(t *testing.T) {
 	setSecret(t)
 
-	issued, err := tauth.IssueTokens(t.Name(), tauth.TAuthOptions{Sub: "test-client"})
+	issued, err := tauth.IssueTokens(t.Name(), tauth.TAuthOptions{})
 	require.NoError(t, err)
 	assert.Equal(t, 5*time.Minute, issued.AccessToken.Expiration)
 	assert.Equal(t, 24*time.Hour, issued.RefreshToken.Expiration)
@@ -93,7 +92,6 @@ func TestIssueTokensAllowsMinimumExpirations(t *testing.T) {
 	setSecret(t)
 
 	issued, err := tauth.IssueTokens(t.Name(), tauth.TAuthOptions{
-		Sub:          "test-client",
 		ATExpiration: durationPtr(5 * time.Minute),
 		RTExpiration: durationPtr(time.Hour),
 	})
@@ -112,32 +110,19 @@ func TestIssueTokensValidationErrors(t *testing.T) {
 		{
 			name: "empty user",
 			user: "",
-			opts: tauth.TAuthOptions{Sub: "test-client"},
+			opts: tauth.TAuthOptions{},
 			want: terrors.TErrUserRequired,
 		},
 		{
 			name: "whitespace user",
 			user: "   ",
-			opts: tauth.TAuthOptions{Sub: "test-client"},
-			want: terrors.TErrUserRequired,
-		},
-		{
-			name: "empty sub",
-			user: "user",
 			opts: tauth.TAuthOptions{},
-			want: terrors.TErrSubRequired,
-		},
-		{
-			name: "whitespace sub",
-			user: "user",
-			opts: tauth.TAuthOptions{Sub: "   "},
-			want: terrors.TErrSubRequired,
+			want: terrors.TErrUserRequired,
 		},
 		{
 			name: "access token expiration too low",
 			user: "user",
 			opts: tauth.TAuthOptions{
-				Sub:          "test-client",
 				ATExpiration: durationPtr(time.Minute),
 			},
 			want: terrors.TErrRTExpTooLow,
@@ -146,7 +131,6 @@ func TestIssueTokensValidationErrors(t *testing.T) {
 			name: "refresh token expiration too low",
 			user: "user",
 			opts: tauth.TAuthOptions{
-				Sub:          "test-client",
 				RTExpiration: durationPtr(time.Minute),
 			},
 			want: terrors.TErrRTExpTooLow,
@@ -172,7 +156,7 @@ func TestValidateTokenSucceedsWithoutCustomClaims(t *testing.T) {
 	setSecret(t)
 
 	user := t.Name()
-	issued, err := tauth.IssueTokens(user, tauth.TAuthOptions{Sub: "test-client"})
+	issued, err := tauth.IssueTokens(user, tauth.TAuthOptions{})
 	require.NoError(t, err)
 
 	gotUser, customClaims, err := tauth.ValidateToken(issued.AccessToken.Token)
@@ -244,7 +228,6 @@ func TestValidateTokenRejectsExpiredToken(t *testing.T) {
 	token := mustSign(t, jwt.MapClaims{
 		"iss":  common.DefaultIssuer,
 		"exp":  time.Now().Add(-2 * time.Minute).Unix(),
-		"sub":  "test-client",
 		"user": t.Name(),
 	})
 
@@ -257,7 +240,6 @@ func TestValidateTokenRejectsMissingExpiration(t *testing.T) {
 
 	token := mustSign(t, jwt.MapClaims{
 		"iss":  common.DefaultIssuer,
-		"sub":  "test-client",
 		"user": t.Name(),
 	})
 
@@ -271,7 +253,6 @@ func TestValidateTokenRejectsWrongSigningMethod(t *testing.T) {
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS384, jwt.MapClaims{
 		"iss":  common.DefaultIssuer,
 		"exp":  time.Now().Add(time.Minute).Unix(),
-		"sub":  "test-client",
 		"user": t.Name(),
 	}).SignedString([]byte(testSecret))
 	require.NoError(t, err)
@@ -314,7 +295,7 @@ func TestRefreshTokensSucceedsWithoutCustomClaims(t *testing.T) {
 	setSecret(t)
 
 	user := t.Name()
-	oldTokens, err := tauth.IssueTokens(user, tauth.TAuthOptions{Sub: "test-client"})
+	oldTokens, err := tauth.IssueTokens(user, tauth.TAuthOptions{})
 	require.NoError(t, err)
 
 	newTokens, err := tauth.RefreshTokens(user, oldTokens.RefreshToken.Token)
